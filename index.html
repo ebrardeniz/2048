@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>2048</title>
+<style>
+body {
+  background: #ffccdd;
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+
+h1 {
+  font-size: 60px;
+  color: #f7a7d6;
+}
+
+#scoreboard {
+  margin: 10px;
+}
+
+.box {
+  display: inline-block;
+  background: #ff99cc;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  margin: 5px;
+}
+
+#board {
+  width: 420px;
+  height: 420px;
+  margin: auto;
+  background: #f4b6c2;
+  border-radius: 10px;
+  position: relative;
+}
+
+.cell {
+  width: 90px;
+  height: 90px;
+  background-color: #d5006d; 
+  border-radius: 6px;
+  position: absolute;
+}
+
+.tile {
+  width: 90px;
+  height: 90px;
+  position: absolute;
+  transition: transform 0.18s ease-in-out, opacity 0.2s ease-in-out;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 30px;
+  font-weight: bold;
+  color: white;
+  background-color: #da4ea4;
+  border-radius: 6px;
+}
+
+.tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+  opacity: 1; /* Resmi tamamen görünür yap */
+}
+
+.tile span {
+  position: absolute;
+  font-size: 32px;
+  font-weight: bold;
+  color: white;
+  z-index: 2;  /* Sayı resmin üstünde olacak */
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.merge {
+  animation: pop 0.18s;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>2048</h1>
+
+<div id="scoreboard">
+  <div class="box">Score: <span id="score">0</span></div>
+  <div class="box">Best: <span id="best">0</span></div>
+</div>
+
+<div id="board"></div>
+
+<script>
+const boardDiv = document.getElementById("board");
+
+let grid = [
+  [0, 0, 0, 0],
+  [0, 0, 0, 0],
+  [0, 0, 0, 0],
+  [0, 0, 0, 0]
+];
+
+let score = 0;
+let best = localStorage.getItem("best") || 0;
+
+document.getElementById("best").innerText = best;
+
+const size = 4;
+const gap = 10;
+const tileSize = 90;
+
+function cellPos(r, c) {
+  return {
+    x: c * (tileSize + gap) + 10,
+    y: r * (tileSize + gap) + 10
+  };
+}
+
+for (let r = 0; r < size; r++) {
+  for (let c = 0; c < size; c++) {
+    let cell = document.createElement("div");
+    cell.className = "cell";
+    let p = cellPos(r, c);
+    cell.style.left = p.x + "px";
+    cell.style.top = p.y + "px";
+    boardDiv.appendChild(cell);
+  }
+}
+
+function draw() {
+  document.querySelectorAll(".tile").forEach(t => t.remove());
+
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (grid[r][c] !== 0) {
+        let tile = document.createElement("div");
+        tile.className = "tile";
+
+        let img = document.createElement("img");
+        img.src = grid[r][c] + ".jpeg";  // Resmin yolunu belirt
+
+        // Sayıyı gösteren bir <span> etiketi ekleyelim
+        let number = document.createElement("span");
+        number.innerText = grid[r][c];  // Sayı olarak mevcut değeri göster
+        tile.appendChild(img);
+        tile.appendChild(number);
+
+        let p = cellPos(r, c);
+        tile.style.transform = `translate(${p.x}px, ${p.y}px)`;  // Konumlandırma
+
+        boardDiv.appendChild(tile);
+      }
+    }
+  }
+
+  document.getElementById("score").innerText = score;
+
+  if (score > best) {
+    best = score;
+    localStorage.setItem("best", best);
+    document.getElementById("best").innerText = best;
+  }
+}
+
+function randomTile() {
+  let empty = [];
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (grid[r][c] === 0) empty.push({ r, c });
+    }
+  }
+
+  if (empty.length === 0) return;
+
+  let s = empty[Math.floor(Math.random() * empty.length)];
+  grid[s.r][s.c] = Math.random() < 0.9 ? 2 : 4;
+}
+
+function slide(row) {
+  row = row.filter(v => v);
+
+  for (let i = 0; i < row.length - 1; i++) {
+    if (row[i] === row[i + 1]) {
+      row[i] *= 2;
+      score += row[i];
+      row[i + 1] = 0;
+    }
+  }
+
+  row = row.filter(v => v);
+  while (row.length < 4) row.push(0);
+
+  return row;
+}
+
+function left() {
+  for (let r = 0; r < size; r++) grid[r] = slide(grid[r]);
+}
+
+function right() {
+  for (let r = 0; r < size; r++) {
+    grid[r].reverse();
+    grid[r] = slide(grid[r]);
+    grid[r].reverse();
+  }
+}
+
+function up() {
+  for (let c = 0; c < size; c++) {
+    let col = [grid[0][c], grid[1][c], grid[2][c], grid[3][c]];
+    col = slide(col);
+    for (let r = 0; r < size; r++) grid[r][c] = col[r];
+  }
+}
+
+function down() {
+  for (let c = 0; c < size; c++) {
+    let col = [grid[0][c], grid[1][c], grid[2][c], grid[3][c]];
+    col.reverse();
+    col = slide(col);
+    col.reverse();
+    for (let r = 0; r < size; r++) grid[r][c] = col[r];
+  }
+}
+
+function gameOver() {
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      if (grid[r][c] === 0) return false;
+      if (c < 3 && grid[r][c] === grid[r][c + 1]) return false;
+      if (r < 3 && grid[r][c] === grid[r + 1][c]) return false;
+    }
+  }
+
+  return true;
+}
+
+function move(dir) {
+  if (dir === "left") left();
+  if (dir === "right") right();
+  if (dir === "up") up();
+  if (dir === "down") down();
+
+  randomTile();
+  draw();
+
+  if (gameOver()) setTimeout(() => alert("Game Over\nScore: " + score), 200);
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft") move("left");
+  if (e.key === "ArrowRight") move("right");
+  if (e.key === "ArrowUp") move("up");
+  if (e.key === "ArrowDown") move("down");
+});
+
+let startX, startY;
+
+document.addEventListener("touchstart", e => {
+  startX = e.touches[0].clientX;
+  startY = e.touches[0].clientY;
+});
+
+document.addEventListener("touchend", e => {
+  let dx = e.changedTouches[0].clientX - startX;
+  let dy = e.changedTouches[0].clientY - startY;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 0) move("right");
+    else move("left");
+  } else {
+    if (dy > 0) move("down");
+    else move("up");
+  }
+});
+
+randomTile();
+randomTile();
+draw();
+</script>
+
+</body>
+</html>
